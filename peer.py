@@ -1,15 +1,16 @@
-from concurrent.futures import thread
-import os
-import signal
 import socket
 import json
 import threading
 import time
 from typing import Callable
 
-from click import command
+'''
+A peer must send "CONNECT:<nickname>" to try to connect to another peer with UDP
+each peer must respond with "CONNECT:<nickname>" after the first CONNECT message received
+'''
 
 TIMEOUT = 0.1
+CONNECTION_ATTEMPTS = 5
 
 with open("config.json") as config_file:
     config = json.load(config_file)
@@ -21,6 +22,15 @@ local_address = ("0.0.0.0",25567)
 server_address = ("127.0.0.1",25566)
 
 server_connected = False
+
+open_connections:dict[str,tuple[str,int]] = {}
+
+
+def string_to_address(address:str):
+    address = address.strip("()")
+    ip = address.split(",")[0].strip("\'")
+    port = int(address.split(",")[1].strip())
+    return (ip,port)
 
 def new_server_socket():
     global server_connected
@@ -119,6 +129,7 @@ def connection(input_ready:threading.Event):
     global terminal_thread
     global server
     global server_connected
+    global open_connections
     try:
         while True:
             #check commands from server
@@ -144,8 +155,19 @@ def connection(input_ready:threading.Event):
                             input_task.run()
                         elif command == "FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
-                            address = data.decode("ASCII").split(":")[2]
+                            address = string_to_address(data.decode("ASCII").split(":")[2])
                             rprint(f"{target_nickname} found at {address}")
+
+                            for i in range(CONNECTION_ATTEMPTS):
+                                udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
+                                data,ck_address = udp_socket.recvfrom(1024)
+                                if data.decode("ASCII")==f"CONNECT:{target_nickname}" and ck_address==address:
+                                    udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
+                                    rprint(f"Connected to {target_nickname}!")
+                                    open_connections[target_nickname]=address
+                                    break
+                                    
+
                         elif command == "NOT FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
                             rprint(f"{target_nickname} not found")
