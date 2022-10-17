@@ -49,7 +49,7 @@ try:
             if nickname not in clients:
                 clients[nickname] = (client_socket,client_addr)
                 print(f"{nickname} connected! {client_addr}")
-        except TimeoutError:
+        except socket.timeout:
             pass
         to_remove:list[str] = []
         for name,client_info in clients.items():
@@ -59,7 +59,7 @@ try:
                 if not data: #client disconnected
                     print(f"{name} disconnected! {client_info[1]}")
                     to_remove.append(name)
-            except TimeoutError:
+            except socket.timeout:
                 pass
             except ConnectionResetError:
                 print(f"{name} disconnected! {client_info[1]}")
@@ -95,7 +95,7 @@ try:
                     if client_nickname in waiting_list:
                         clients[waiting_list[client_nickname]][0].send(f"NOT FOUND:{client_nickname}".encode("ASCII"))
 
-        except TimeoutError:
+        except socket.timeout:
             pass
 
 

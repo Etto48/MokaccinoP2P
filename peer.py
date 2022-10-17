@@ -53,7 +53,7 @@ while server_connected == False:
         server = new_server_socket()
         server_connected = True
         print("Connected!")
-    except TimeoutError:
+    except socket.timeout:
         pass
 
 command_buffer = ""
@@ -171,14 +171,14 @@ def connection(input_ready:threading.Event):
                         elif command == "NOT FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
                             rprint(f"{target_nickname} not found")
-                except TimeoutError:
+                except socket.timeout:
                     pass   
             else:
                 try:
                     server = new_server_socket()
                     server_connected = True
                     rprint("\033[32mServer reconnected!\033[0m")
-                except (TimeoutError, ConnectionRefusedError):
+                except (socket.timeout, ConnectionRefusedError):
                     pass
 
             if not terminal_thread.is_alive():
