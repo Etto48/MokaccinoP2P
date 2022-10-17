@@ -1,7 +1,5 @@
 import socket
 
-from keyboard import wait
-
 TIMEOUT = 0.1
 
 '''
