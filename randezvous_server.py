@@ -1,5 +1,7 @@
 import socket
 
+from keyboard import wait
+
 TIMEOUT = 0.1
 
 '''
@@ -10,7 +12,7 @@ you can request a connection to a user sending an UDP packet with
 the server will respond with
 "FOUND:<target nickname>:(<addr>,<port>)"
 or
-"NOT FOUND"
+"NOT FOUND:<target nickname>"
 
 the server may inform you about a new user wanting to connect with
 "PENDING:<nickname>:(<addr>,<port>)"
@@ -61,6 +63,9 @@ try:
                     to_remove.append(name)
             except TimeoutError:
                 pass
+            except ConnectionResetError:
+                print(f"{name} disconnected! {client_info[1]}")
+                to_remove.append(name)
         for dead in to_remove:
             clients.pop(dead)
         
@@ -75,18 +80,22 @@ try:
                 if clients[client_nickname][1][0]==client_addr[0]:
                     print(f"REQUEST from {client_nickname} to {target_nickname}")
                     if target_nickname not in clients:
-                        clients[client_nickname][0].send(f"NOT FOUND".encode("ASCII"))
+                        clients[client_nickname][0].send(f"NOT FOUND:{target_nickname}".encode("ASCII"))
                     clients[target_nickname][0].send(f"PENDING:{client_nickname}:{client_address}".encode("ASCII"))
                     waiting_list[target_nickname]=client_nickname
 
             elif command == "HERE":
+                client_nickname = data.decode("ASCII").split(":")[1]
                 if clients[client_nickname][1][0]==client_addr[0]:
                     print(f"HERE from {client_nickname}")
-                    clients[waiting_list[client_nickname]][0].send(f"FOUND:{client_nickname}:{client_address}".encode("ASCII"))
+                    if client_nickname in waiting_list:
+                        clients[waiting_list[client_nickname]][0].send(f"FOUND:{client_nickname}:{client_address}".encode("ASCII"))
             elif command == "REFUSE":
+                client_nickname = data.decode("ASCII").split(":")[1]
                 if clients[client_nickname][1][0]==client_addr[0]:
                     print(f"REFUSE from {client_nickname}")
-                    clients[waiting_list[client_nickname]][0].send(f"NOT FOUND")
+                    if client_nickname in waiting_list:
+                        clients[waiting_list[client_nickname]][0].send(f"NOT FOUND:{client_nickname}".encode("ASCII"))
 
         except TimeoutError:
             pass
