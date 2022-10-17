@@ -1,5 +1,6 @@
 import socket
 import json
+import sys
 import threading
 import time
 from typing import Callable
@@ -19,7 +20,10 @@ def rprint(string,end="\n> "):
     print("\r"+string,end=end)
 
 local_address = ("0.0.0.0",25567)
-server_address = ("127.0.0.1",25566)
+if len(sys.argv)>1:
+    server_address = (sys.argv[1],25566)
+else:
+    server_address = ("127.0.0.1",25566)
 
 server_connected = False
 
