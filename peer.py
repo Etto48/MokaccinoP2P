@@ -25,14 +25,14 @@ local_address = ("0.0.0.0",25567)
 if len(sys.argv)>1:
     server_address = (sys.argv[1],25566)
 else:
-    server_address = ("127.0.0.1",25566)
+    server_address = (config["server"],25566)
 
 server_connected = False
 
 open_connections:dict[str,tuple[str,int]] = {}
 pending_connections:queue.Queue[tuple[str,tuple[str,int],int]] = queue.Queue()
-waiting_handshake_connections:dict[str,tuple[str,int]]
-waiting_connected_connections:dict[str,tuple[str,int]]
+waiting_handshake_connections:dict[str,tuple[str,int]] = {}
+waiting_connected_connections:dict[str,tuple[str,int]] = {}
 
 def string_to_address(address:str):
     address = address.strip("()")
@@ -203,15 +203,24 @@ def connection(input_ready:threading.Event):
                         waiting_connected_connections.pop(decoded_msg[1])
                         open_connections[decoded_msg[1]] = address
                         rprint(f"Connected with {decoded_msg[1]}")
-
-                    
-
             except TimeoutError:
                 pass
-                
+
+            fallback_wating_handshake:dict[str,tuple(str,int)] = {}
+            fallback_wating_connected:dict[str,tuple(str,int)] = {}
+            for nickname,failed_connection in waiting_handshake_connections.items():
+                fallback_wating_handshake[nickname] = (failed_connection[0],failed_connection[1]+1)
+            for nickname,new_addr in fallback_wating_handshake.items():
+                waiting_handshake_connections[nickname]=new_addr
+            for nickname,failed_connection in waiting_connected_connections.items():
+                fallback_wating_connected[nickname] = (failed_connection[0],failed_connection[1]+1)
+            for nickname,new_addr in fallback_wating_connected.items():
+                waiting_connected_connections[nickname]=new_addr
+
+
             while not pending_connections.empty():
                 target_nickname,address,stage = pending_connections.get(block=False)
-                if stage==0 or stage == 1: #->[CONNECT] HANDSHAKE CONNECTED | #CONNECT ->[HANDSHAKE] CONNECTED
+                if stage==0: #->[CONNECT] HANDSHAKE CONNECTED
                     udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
                     waiting_handshake_connections[target_nickname] = address
                 elif stage==1: #CONNECT ->[HANDSHAKE] CONNECTED

@@ -80,8 +80,9 @@ try:
                     print(f"REQUEST from {client_nickname} to {target_nickname} {client_address}")
                     if target_nickname not in clients:
                         clients[client_nickname][0].send(f"NOT FOUND:{target_nickname}".encode("ASCII"))
-                    clients[target_nickname][0].send(f"PENDING:{client_nickname}:{client_address}".encode("ASCII"))
-                    waiting_list[target_nickname]=client_nickname
+                    else:
+                        clients[target_nickname][0].send(f"PENDING:{client_nickname}:{client_address}".encode("ASCII"))
+                        waiting_list[target_nickname]=client_nickname
 
             elif command == "HERE":
                 client_nickname = data.decode("ASCII").split(":")[1]
