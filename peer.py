@@ -206,18 +206,6 @@ def connection(input_ready:threading.Event):
             except TimeoutError:
                 pass
 
-            fallback_wating_handshake:dict[str,tuple(str,int)] = {}
-            fallback_wating_connected:dict[str,tuple(str,int)] = {}
-            for nickname,failed_connection in waiting_handshake_connections.items():
-                fallback_wating_handshake[nickname] = (failed_connection[0],failed_connection[1]+1)
-            for nickname,new_addr in fallback_wating_handshake.items():
-                waiting_handshake_connections[nickname]=new_addr
-            for nickname,failed_connection in waiting_connected_connections.items():
-                fallback_wating_connected[nickname] = (failed_connection[0],failed_connection[1]+1)
-            for nickname,new_addr in fallback_wating_connected.items():
-                waiting_connected_connections[nickname]=new_addr
-
-
             while not pending_connections.empty():
                 target_nickname,address,stage = pending_connections.get(block=False)
                 if stage==0: #->[CONNECT] HANDSHAKE CONNECTED
