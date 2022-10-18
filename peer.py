@@ -156,7 +156,7 @@ def connection(input_ready:threading.Event):
                                 else:
                                     udp_socket.sendto(f"REFUSE:{config['nickname']}".encode("ASCII"),server_address)
                             input_task = InputTask(pre_input_task,input_task_function)
-                            input_task.run()
+                            input_task.start()
                         elif command == "FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
                             address = string_to_address(data.decode("ASCII").split(":")[2])

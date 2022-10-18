@@ -42,13 +42,13 @@ try:
     while True:
         try:
             #new connection
-            client_socket, client_addr = server_socket.accept()
+            client_socket, client_address = server_socket.accept()
             client_socket.settimeout(TIMEOUT)
             raw_nickname = client_socket.recv(1024)
             nickname = raw_nickname.decode("ASCII").split('\n')[0]
             if nickname not in clients:
-                clients[nickname] = (client_socket,client_addr)
-                print(f"{nickname} connected! {client_addr}")
+                clients[nickname] = (client_socket,client_address)
+                print(f"{nickname} connected! {client_address}")
         except socket.timeout:
             pass
         to_remove:list[str] = []
@@ -75,8 +75,8 @@ try:
             if command == "REQUEST":
                 client_nickname = data.decode("ASCII").split(":")[1]
                 target_nickname = data.decode("ASCII").split(":")[2]
-                if clients[client_nickname][1][0]==client_addr[0]:
-                    print(f"REQUEST from {client_nickname} to {target_nickname}")
+                if clients[client_nickname][1][0]==client_address[0]:
+                    print(f"REQUEST from {client_nickname} to {target_nickname} {client_address}")
                     if target_nickname not in clients:
                         clients[client_nickname][0].send(f"NOT FOUND:{target_nickname}".encode("ASCII"))
                     clients[target_nickname][0].send(f"PENDING:{client_nickname}:{client_address}".encode("ASCII"))
@@ -84,14 +84,14 @@ try:
 
             elif command == "HERE":
                 client_nickname = data.decode("ASCII").split(":")[1]
-                if clients[client_nickname][1][0]==client_addr[0]:
-                    print(f"HERE from {client_nickname}")
+                if clients[client_nickname][1][0]==client_address[0]:
+                    print(f"HERE from {client_nickname} {client_address}")
                     if client_nickname in waiting_list:
                         clients[waiting_list[client_nickname]][0].send(f"FOUND:{client_nickname}:{client_address}".encode("ASCII"))
             elif command == "REFUSE":
                 client_nickname = data.decode("ASCII").split(":")[1]
-                if clients[client_nickname][1][0]==client_addr[0]:
-                    print(f"REFUSE from {client_nickname}")
+                if clients[client_nickname][1][0]==client_address[0]:
+                    print(f"REFUSE from {client_nickname} {client_address}")
                     if client_nickname in waiting_list:
                         clients[waiting_list[client_nickname]][0].send(f"NOT FOUND:{client_nickname}".encode("ASCII"))
 
