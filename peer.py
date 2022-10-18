@@ -138,6 +138,9 @@ def connection(input_ready:threading.Event):
     global server
     global server_connected
     global open_connections
+    global waiting_handshake_connections
+    global waiting_connected_connections
+    global pending_connections
     try:
         while True:
             #check commands from server
