@@ -152,7 +152,7 @@ def connection(input_ready:threading.Event):
                         command = data.decode("ASCII").split(":")[0]
                         
                         if command == "PENDING":
-                            if config["autoaccept"]:
+                            if "autoaccept" in config and config["autoaccept"]:
                                 udp_socket.sendto(f"HERE:{config['nickname']}".encode("ASCII"),server_address)
                             else:
                                 def pre_input_task():
