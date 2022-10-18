@@ -1,3 +1,4 @@
+import queue
 import socket
 import json
 import sys
@@ -7,7 +8,8 @@ from typing import Callable
 
 '''
 A peer must send "CONNECT:<nickname>" to try to connect to another peer with UDP
-each peer must respond with "CONNECT:<nickname>" after the first CONNECT message received
+each peer must respond with "HANDSHAKE:<nickname>" after the first CONNECT message received
+the first peer must send "CONNECTED:<nickname>" after the handshake is received
 '''
 
 TIMEOUT = 0.1
@@ -28,7 +30,9 @@ else:
 server_connected = False
 
 open_connections:dict[str,tuple[str,int]] = {}
-
+pending_connections:queue.Queue[tuple[str,tuple[str,int],int]] = queue.Queue()
+waiting_handshake_connections:dict[str,tuple[str,int]]
+waiting_connected_connections:dict[str,tuple[str,int]]
 
 def string_to_address(address:str):
     address = address.strip("()")
@@ -148,29 +152,25 @@ def connection(input_ready:threading.Event):
                         command = data.decode("ASCII").split(":")[0]
                         
                         if command == "PENDING":
-                            def pre_input_task():
-                                rprint(f"Accept connection from {data.decode('ASCII').split(':')[1]}? (y/N): ", end="")
-                            def input_task_function(res):
-                                if res == 'Y' or res == 'y':
-                                    udp_socket.sendto(f"HERE:{config['nickname']}".encode("ASCII"),server_address)
-                                else:
-                                    udp_socket.sendto(f"REFUSE:{config['nickname']}".encode("ASCII"),server_address)
-                            input_task = InputTask(pre_input_task,input_task_function)
-                            input_task.start()
+                            if config["autoaccept"]:
+                                udp_socket.sendto(f"HERE:{config['nickname']}".encode("ASCII"),server_address)
+                            else:
+                                def pre_input_task():
+                                    rprint(f"Accept connection from {data.decode('ASCII').split(':')[1]}? (y/N): ", end="")
+                                def input_task_function(res):
+                                    if res == 'Y' or res == 'y':
+                                        udp_socket.sendto(f"HERE:{config['nickname']}".encode("ASCII"),server_address)
+                                    else:
+                                        udp_socket.sendto(f"REFUSE:{config['nickname']}".encode("ASCII"),server_address)
+                                input_task = InputTask(pre_input_task,input_task_function)
+                                input_task.start()
                         elif command == "FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
                             address = string_to_address(data.decode("ASCII").split(":")[2])
                             rprint(f"{target_nickname} found at {address}")
 
-                            for i in range(CONNECTION_ATTEMPTS):
-                                udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
-                                data,ck_address = udp_socket.recvfrom(1024)
-                                if data.decode("ASCII")==f"CONNECT:{target_nickname}" and ck_address==address:
-                                    udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
-                                    rprint(f"Connected to {target_nickname}!")
-                                    open_connections[target_nickname]=address
-                                    break
-                                    
+                            pending_connections.put((target_nickname,address,0),block=False)                                    
+                                
 
                         elif command == "NOT FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
@@ -184,6 +184,42 @@ def connection(input_ready:threading.Event):
                     rprint("\033[32mServer reconnected!\033[0m")
                 except (socket.timeout, ConnectionRefusedError):
                     pass
+            
+            try:
+                msg,addr = udp_socket.recvfrom(1024)
+                rprint(f"{addr}: {msg.decode('ASCII')}")
+                decoded_msg = msg.decode("ASCII").split(":")
+                if decoded_msg[0] == "CONNECT":
+                    pending_connections.put((decoded_msg[1],addr,1),block=False)
+                elif decoded_msg[0] == "HANDSHAKE":
+                    if decoded_msg[1] in waiting_handshake_connections and waiting_handshake_connections[decoded_msg[1]]==addr:
+                        waiting_handshake_connections.pop(decoded_msg[1])
+                        pending_connections.put((decoded_msg[1],addr,2),block=False)
+                elif decoded_msg[0] == "CONNECTED":
+                    if decoded_msg[1] in waiting_connected_connections and waiting_connected_connections[decoded_msg[1]]==addr:
+                        waiting_connected_connections.pop(decoded_msg[1])
+                        open_connections[decoded_msg[1]] = address
+                        rprint(f"Connected with {decoded_msg[1]}")
+
+                    
+
+            except TimeoutError:
+                pass
+                
+            while not pending_connections.empty():
+                target_nickname,address,stage = pending_connections.get(block=False)
+                if stage==0 or stage == 1: #->[CONNECT] HANDSHAKE CONNECTED | #CONNECT ->[HANDSHAKE] CONNECTED
+                    udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
+                    waiting_handshake_connections[target_nickname] = address
+                elif stage==1: #CONNECT ->[HANDSHAKE] CONNECTED
+                    udp_socket.sendto(f"HANDSHAKE:{config['nickname']}".encode("ASCII"),address)
+                    waiting_connected_connections[target_nickname] = address
+                elif stage==2: #CONNECT HANDSHAKE ->[CONNECTED]
+                    udp_socket.sendto(f"CONNECTED:{config['nickname']}".encode("ASCII"),address)
+                    open_connections[target_nickname] = address
+                    rprint(f"Connected with {decoded_msg[1]}")
+
+
 
             if not terminal_thread.is_alive():
                 break
