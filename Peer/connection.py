@@ -20,7 +20,7 @@ RETRY_CONNECT_TIMER = 5
 INTERNET_PROTOCOL = socket.AF_INET
 
 
-MTU = 1024
+MTU = 1500
 
 try:
     with open("config.json") as config_file:
@@ -194,7 +194,8 @@ def connection():
                     udp_socket.sendto(f"CONNECTED:{config['nickname']}".encode("ASCII"),address)
                     open_connections[target_nickname] = tools.peer(target_nickname,address)
                     printing.rprint(f"Connected with {decoded_msg[1]}")
-        
+
+            #voice chat send
             if not voice.send_audio_buffer.empty() and voice.voice_call_peer is not None:
                 out_data = voice.send_audio_buffer.get(block=False)
                 udp_socket.sendto("AUDIO:".encode("ASCII")+out_data,voice.voice_call_peer.address)
