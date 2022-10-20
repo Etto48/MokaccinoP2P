@@ -1,6 +1,6 @@
 {
     "nickname": "ettore",
     "autoconnect": true,
-    "server": "ettorecraft.ddns.net",
+    "server": "fe80::2ffd:770f:3a:6135",
     "port": 23232
 }

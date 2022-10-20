@@ -19,7 +19,7 @@ ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
 RETRY_CONNECT_TIMER = 5
 
-INTERNET_PROTOCOL = socket.AF_INET6
+INTERNET_PROTOCOL = socket.AF_INET
 
 
 MTU = 1024
@@ -111,7 +111,8 @@ def connection():
                                 input_task.start()
                         elif command == "FOUND":
                             target_nickname = data.decode("ASCII").split(":")[1]
-                            address = tools.string_to_address(data.decode("ASCII").split(":")[2])
+                            address_string = ":".join(data.decode("ASCII").split(":")[2:])
+                            address = tools.string_to_address(address_string)
                             printing.rprint(f"{target_nickname} found at {address}")
 
                             pending_connections.put((target_nickname,address,0),block=False)                                    

@@ -2,7 +2,7 @@ import socket
 
 TIMEOUT = 0.1
 
-INTERNET_PROTOCOL = socket.AF_INET6
+INTERNET_PROTOCOL = socket.AF_INET
 
 '''
 after connection server waits for Nickname
@@ -30,7 +30,7 @@ if INTERNET_PROTOCOL == socket.AF_INET:
 elif INTERNET_PROTOCOL == socket.AF_INET6:
     server_tcp_addr = ("::",25566)
     server_udp_addr = ("::",25566)
-    
+
 server_udp_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_DGRAM)
 server_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_STREAM)
 server_udp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
