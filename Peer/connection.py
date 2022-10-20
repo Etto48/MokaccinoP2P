@@ -147,7 +147,7 @@ def connection():
                 elif decoded_msg[0] == "AUDIOSTART":
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr:
                         if config["autoconnect"]:
-                            udp_socket.send(f"AUDIOACCEPT:{config['nickname']}".encode("ASCII"),open_connections[decoded_msg[1]].address)
+                            udp_socket.sendto(f"AUDIOACCEPT:{config['nickname']}".encode("ASCII"),open_connections[decoded_msg[1]].address)
                             printing.rprint(f"Voice call accepted from {decoded_msg[1]}")
                 elif decoded_msg[0] == "AUDIOACCEPT":
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr and voice.requested_peer==decoded_msg[1]:
@@ -184,7 +184,7 @@ def connection():
         
             if not voice.send_audio_buffer.empty() and voice.voice_call_peer is not None:
                 out_data = voice.send_audio_buffer.get(block=False)
-                udp_socket.sendall("AUDIO:".encode("ASCII")+out_data)
+                udp_socket.sendto("AUDIO:".encode("ASCII")+out_data,voice.voice_call_peer.address)
 
             #check peer gone offline
             if need_to_check_alive and time.time() - last_checked_keep_alive > MAX_OFFLINE_TIME:
