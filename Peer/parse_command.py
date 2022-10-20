@@ -31,7 +31,8 @@ def parse_command(command:str):
             else:
                 connection.udp_socket.sendto(f"AUDIOSTART:{connection.config['nickname']}".encode("ASCII"),connection.open_connections[command_args[1]].address)
                 voice.requested_peer = command_args[1]
-        
+        elif command_args[0] == "exit":
+            exit()
 
         elif command_args[0] == "help":
             pass

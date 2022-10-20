@@ -169,7 +169,7 @@ def connection():
                         voice.start_voice_call(open_connections[decoded_msg[1]])
                         printing.rprint(f"Voice call started with {decoded_msg[1]}")
                 elif decoded_msg[0] == "AUDIOSTOP":
-                    if voice.voice_call_peer.nickname==decoded_msg[1] and voice.voice_call_peer.address == addr:
+                    if voice.voice_call_peer is not None and voice.voice_call_peer.nickname==decoded_msg[1] and voice.voice_call_peer.address == addr:
                         open_connections[decoded_msg[1]].see()
                         voice.stop_voice_call()
                         printing.rprint(f"Voice call terminated by {decoded_msg[1]}")

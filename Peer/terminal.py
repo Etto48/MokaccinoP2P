@@ -11,8 +11,8 @@ def terminal(input_ready:threading.Event):
                 command = input("\r> ")
                 command_buffer = command
                 input_ready.set()
-    except (KeyboardInterrupt,EOFError):
-        pass
+    except (KeyboardInterrupt,EOFError,ValueError):
+        print("\r",end="")
 
 input_ready = threading.Event()
 input_mutex = threading.Semaphore(1)

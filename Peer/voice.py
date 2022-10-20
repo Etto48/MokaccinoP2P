@@ -4,7 +4,7 @@ import queue
 import threading
 from . import tools
 
-CHUNK = 1024-8
+CHUNK = 512
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
@@ -51,5 +51,6 @@ def start_voice_call(target:tools.peer):
 
 def stop_voice_call():
     global stop_call
+    global voice_call_peer
     voice_call_peer = None
     stop_call.set()
