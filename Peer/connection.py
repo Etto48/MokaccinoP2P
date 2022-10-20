@@ -1,3 +1,4 @@
+from email.header import decode_header
 import json
 import socket
 import threading
@@ -118,8 +119,19 @@ def connection():
             
             try:#receive messages from peers
                 msg,addr = udp_socket.recvfrom(MTU)
-                printing.rprint(f"{addr}: {msg.decode('ASCII')}")
-                decoded_msg = msg.decode("ASCII").split(":")
+                
+                try:
+                    printing.rprint(f"{addr}: {msg.decode('ASCII')}")
+                    decoded_msg = msg.decode("ASCII").split(":")
+                except UnicodeDecodeError:
+                    command_bytes = []
+                    for b in msg:
+                        if b != b":":
+                            command_bytes.append(chr(b))
+                        else:
+                            break
+                    decoded_msg = ["".join(command_bytes)]
+                    printing.rprint(f"{addr}: {decoded_msg[0]}:RAWDATA")
                 if decoded_msg[0] == "CONNECT":
                     if decoded_msg[1] not in open_connections:
                         pending_connections.put((decoded_msg[1],addr,1),block=False)
