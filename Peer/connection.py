@@ -118,7 +118,7 @@ def connection():
             
             try:#receive messages from peers
                 msg,addr = udp_socket.recvfrom(MTU)
-                #printing.rprint(f"{addr}: {msg.decode('ASCII')}")
+                printing.rprint(f"{addr}: {msg.decode('ASCII')}")
                 decoded_msg = msg.decode("ASCII").split(":")
                 if decoded_msg[0] == "CONNECT":
                     if decoded_msg[1] not in open_connections:
@@ -148,6 +148,7 @@ def connection():
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr:
                         if config["autoconnect"]:
                             udp_socket.sendto(f"AUDIOACCEPT:{config['nickname']}".encode("ASCII"),open_connections[decoded_msg[1]].address)
+                            voice.start_voice_call(open_connections[decoded_msg[1]])
                             printing.rprint(f"Voice call accepted from {decoded_msg[1]}")
                 elif decoded_msg[0] == "AUDIOACCEPT":
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr and voice.requested_peer==decoded_msg[1]:
