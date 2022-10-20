@@ -17,6 +17,10 @@ TIMEOUT = 0.1
 
 ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
+RETRY_CONNECT_TIMER = 5
+
+INTERNET_PROTOCOL = socket.AF_INET6
+
 
 MTU = 1024
 
@@ -46,15 +50,16 @@ class peer:
         self.last_seen = time.time()
 
 open_connections:dict[str,peer] = {}
+
 pending_connections:queue.Queue[tuple[str,addr,int]] = queue.Queue()
-waiting_handshake_connections:dict[str,addr] = {}
-waiting_connected_connections:dict[str,addr] = {}
+waiting_handshake_connections:dict[str,tuple[addr,float]] = {}
+waiting_connected_connections:dict[str,tuple[addr,float]] = {}
 
 
 server_connected = False
 def new_server_socket():
     global server_connected
-    server = socket.socket(family=socket.AF_INET,type=socket.SOCK_STREAM)    
+    server = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_STREAM)    
     server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
     server.settimeout(TIMEOUT)
     server.connect(server_address)
@@ -72,6 +77,7 @@ def connection():
     global pending_connections
     last_keep_alive = 0
     last_checked_keep_alive = 0
+    last_check_connection = 0
     need_to_check_alive = False
     try:
         while True:
@@ -128,11 +134,11 @@ def connection():
                     if decoded_msg[1] not in open_connections:
                         pending_connections.put((decoded_msg[1],addr,1),block=False)
                 elif decoded_msg[0] == "HANDSHAKE":
-                    if decoded_msg[1] in waiting_handshake_connections and waiting_handshake_connections[decoded_msg[1]]==addr:
+                    if decoded_msg[1] in waiting_handshake_connections and waiting_handshake_connections[decoded_msg[1]][0]==addr:
                         waiting_handshake_connections.pop(decoded_msg[1])
                         pending_connections.put((decoded_msg[1],addr,2),block=False)
                 elif decoded_msg[0] == "CONNECTED":
-                    if decoded_msg[1] in waiting_connected_connections and waiting_connected_connections[decoded_msg[1]]==addr:
+                    if decoded_msg[1] in waiting_connected_connections and waiting_connected_connections[decoded_msg[1]][0]==addr:
                         waiting_connected_connections.pop(decoded_msg[1])
                         open_connections[decoded_msg[1]] = peer(decoded_msg[1],address)
                         open_connections[decoded_msg[1]].see()
@@ -155,10 +161,10 @@ def connection():
                 target_nickname,address,stage = pending_connections.get(block=False)
                 if stage==0: #->[CONNECT] HANDSHAKE CONNECTED
                     udp_socket.sendto(f"CONNECT:{config['nickname']}".encode("ASCII"),address)
-                    waiting_handshake_connections[target_nickname] = address
+                    waiting_handshake_connections[target_nickname] = (address,time.time())
                 elif stage==1: #CONNECT ->[HANDSHAKE] CONNECTED
                     udp_socket.sendto(f"HANDSHAKE:{config['nickname']}".encode("ASCII"),address)
-                    waiting_connected_connections[target_nickname] = address
+                    waiting_connected_connections[target_nickname] = (address,time.time())
                 elif stage==2: #CONNECT HANDSHAKE ->[CONNECTED]
                     udp_socket.sendto(f"CONNECTED:{config['nickname']}".encode("ASCII"),address)
                     open_connections[target_nickname] = peer(target_nickname,address)
@@ -184,6 +190,23 @@ def connection():
                     last_checked_keep_alive = time.time()
                     need_to_check_alive = True
 
+            if time.time() - last_check_connection > RETRY_CONNECT_TIMER:
+                to_remove:list[str] = []
+                for nickname,(address,last_seen) in waiting_connected_connections.items():
+                    if time.time() - last_seen > RETRY_CONNECT_TIMER:
+                        to_remove.append(nickname)
+                for nickname in to_remove:
+                    pending_connections.put((nickname,waiting_connected_connections[nickname][0],1),block=False)
+                    waiting_connected_connections.pop(nickname)
+                to_remove = []
+                for nickname,(address,last_seen) in waiting_handshake_connections.items():
+                    if time.time() - last_seen > RETRY_CONNECT_TIMER:
+                        to_remove.append(nickname)
+                for nickname in to_remove:
+                    pending_connections.put((nickname,waiting_handshake_connections[nickname][0],0),block=False)
+                    waiting_handshake_connections.pop(nickname)
+                    
+
 
             if not terminal.terminal_thread.is_alive():
                 break
@@ -204,12 +227,11 @@ def start():
     global connection_thread
     global udp_socket
     global local_address
-    global TIMEOUT
     global server
     global server_connected
 
     try:
-        udp_socket = socket.socket(family=socket.AF_INET,type=socket.SOCK_DGRAM)
+        udp_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_DGRAM)
         udp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         udp_socket.bind(local_address)
 
