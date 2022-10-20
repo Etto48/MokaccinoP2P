@@ -1,4 +1,3 @@
-from concurrent.futures import thread
 import pyaudio
 import wave
 import queue
@@ -40,6 +39,7 @@ def voice_call(target:tools.peer,stop_call_event:threading.Event):
 
 voice_call_thread:threading.Thread = None
 def start_voice_call(target:tools.peer):
+    global voice_call_peer
     global voice_call_thread
     global stop_call
     stop_call.clear()
