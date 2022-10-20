@@ -1,17 +1,14 @@
-
 import json
 import socket
 import threading
-import sys
 import queue
 import time
-from xml.dom import NotFoundErr
 
-from parso import parse
 from . import printing
 from . import terminal
 from . import tools
 from . import parse_command
+from . import voice
 
 TIMEOUT = 0.1
 
@@ -27,7 +24,7 @@ MTU = 1024
 try:
     with open("config.json") as config_file:
         config = json.load(config_file)
-except NotFoundErr:
+except FileNotFoundError:
     printing.rcprint("No config file found","red",end="\n")
     exit()
 
@@ -42,16 +39,7 @@ elif INTERNET_PROTOCOL == socket.AF_INET6:
 
 server:socket.socket = None   
 
-class peer:
-    def __init__(self,nickname:str,address:addr):
-        self.last_seen = 0
-        self.nickname = nickname
-        self.address = address
-    def see(self):
-        self.last_seen = time.time()
-
-
-open_connections:dict[str,peer] = {}
+open_connections:dict[str,tools.peer] = {}
 pending_connections:queue.Queue[tuple[str,addr,int]] = queue.Queue()
 waiting_handshake_connections:dict[str,tuple[addr,float]] = {}
 waiting_connected_connections:dict[str,tuple[addr,float]] = {}
@@ -142,7 +130,7 @@ def connection():
                 elif decoded_msg[0] == "CONNECTED":
                     if decoded_msg[1] in waiting_connected_connections and waiting_connected_connections[decoded_msg[1]][0]==addr:
                         waiting_connected_connections.pop(decoded_msg[1])
-                        open_connections[decoded_msg[1]] = peer(decoded_msg[1],address)
+                        open_connections[decoded_msg[1]] = tools.peer(decoded_msg[1],address)
                         open_connections[decoded_msg[1]].see()
                         printing.rprint(f"Connected with {decoded_msg[1]}")
                 elif decoded_msg[0] == "ALIVE":
@@ -156,6 +144,28 @@ def connection():
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr:
                         open_connections[decoded_msg[1]].see()
                         printing.rcprint(printing.format_messge(True,decoded_msg[1],decoded_msg[2]),"cyan")
+                elif decoded_msg[0] == "AUDIOSTART":
+                    if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr:
+                        if config["autoconnect"]:
+                            udp_socket.send(f"AUDIOACCEPT:{config['nickname']}".encode("ASCII"),open_connections[decoded_msg[1]].address)
+                            printing.rprint(f"Voice call accepted from {decoded_msg[1]}")
+                elif decoded_msg[0] == "AUDIOACCEPT":
+                    if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr and voice.requested_peer==decoded_msg[1]:
+                        open_connections[decoded_msg[1]].see()
+                        voice.requested_peer = None
+                        voice.start_voice_call(open_connections[decoded_msg[1]])
+                        printing.rprint(f"Voice call started with {decoded_msg[1]}")
+                elif decoded_msg[0] == "AUDIOSTOP":
+                    if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr and voice.voice_call_peer.nickname==decoded_msg[1]:
+                        open_connections[decoded_msg[1]].see()
+                        voice.stop_voice_call()
+                        printing.rprint(f"Voice call terminated by {decoded_msg[1]}")
+                elif decoded_msg[0] == "AUDIO":
+                    if voice.voice_call_peer is not None and voice.voice_call_peer.address == addr:
+                        in_data = msg[6:]
+                        voice.recv_audio_buffer.put(in_data,block=False)
+                    else:
+                        udp_socket.send(f"AUDIOSTOP:{decoded_msg[1]}",addr)
             except socket.timeout:
                 pass
 
@@ -169,8 +179,12 @@ def connection():
                     waiting_connected_connections[target_nickname] = (address,time.time())
                 elif stage==2: #CONNECT HANDSHAKE ->[CONNECTED]
                     udp_socket.sendto(f"CONNECTED:{config['nickname']}".encode("ASCII"),address)
-                    open_connections[target_nickname] = peer(target_nickname,address)
+                    open_connections[target_nickname] = tools.peer(target_nickname,address)
                     printing.rprint(f"Connected with {decoded_msg[1]}")
+        
+            if not voice.send_audio_buffer.empty() and voice.voice_call_peer is not None:
+                out_data = voice.send_audio_buffer.get(block=False)
+                udp_socket.sendall("AUDIO:".encode("ASCII")+out_data)
 
             #check peer gone offline
             if need_to_check_alive and time.time() - last_checked_keep_alive > MAX_OFFLINE_TIME:

@@ -1,4 +1,5 @@
 import socket
+import time
 
 INTERNET_PROTOCOL = socket.AF_INET
 
@@ -18,3 +19,11 @@ def string_to_address(address:str) -> addr:
         flowinfo = int(address.split(",")[2].strip())
         scope_id = 0
         return (ip,port,flowinfo,scope_id)
+
+class peer:
+    def __init__(self,nickname:str,address:addr):
+        self.last_seen = 0
+        self.nickname = nickname
+        self.address = address
+    def see(self):
+        self.last_seen = time.time()
