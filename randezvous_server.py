@@ -2,7 +2,7 @@ import socket
 
 TIMEOUT = 0.1
 
-INTERNET_PROTOCOL = socket.AF_INET
+INTERNET_PROTOCOL = socket.AF_INET6
 
 '''
 after connection server waits for Nickname
@@ -27,9 +27,11 @@ waiting_list:dict[str,str] = {}
 if INTERNET_PROTOCOL == socket.AF_INET:
     server_tcp_addr = ("0.0.0.0",25566)
     server_udp_addr = ("0.0.0.0",25566)
+    addr = tuple[str,int]
 elif INTERNET_PROTOCOL == socket.AF_INET6:
-    server_tcp_addr = ("::",25566)
-    server_udp_addr = ("::",25566)
+    server_tcp_addr = ("::",25566,0,0)
+    server_udp_addr = ("::",25566,0,0)
+    addr = tuple[str,int,int,int]
 
 server_udp_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_DGRAM)
 server_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_STREAM)
@@ -38,7 +40,9 @@ server_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
 server_udp_socket.bind(server_udp_addr)
 server_socket.bind(server_tcp_addr)
 server_socket.listen()
-clients:dict[str,tuple[socket.socket,tuple[str,int]]] = {}
+
+
+clients:dict[str,tuple[socket.socket,addr]] = {}
 
 
 server_socket.settimeout(TIMEOUT)

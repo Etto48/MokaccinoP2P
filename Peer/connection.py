@@ -33,17 +33,14 @@ except NotFoundErr:
 
 if INTERNET_PROTOCOL == socket.AF_INET:
     local_address = ("0.0.0.0",config["port"])
-elif INTERNET_PROTOCOL == socket.AF_INET6:
-    local_address = ("::",config["port"])
-
-if len(sys.argv)>1:
-    server_address = (sys.argv[1],25566)
-else:
     server_address = (config["server"],25566)
+    addr = tuple[str,int]
+elif INTERNET_PROTOCOL == socket.AF_INET6:
+    local_address = ("::",config["port"],0,0)
+    server_address = (config["server"],25566,0,3)
+    addr = tuple[str,int,int,int]
 
-server:socket.socket = None
-
-addr = tuple[str,int]
+server:socket.socket = None   
 
 class peer:
     def __init__(self,nickname:str,address:addr):
@@ -53,8 +50,8 @@ class peer:
     def see(self):
         self.last_seen = time.time()
 
-open_connections:dict[str,peer] = {}
 
+open_connections:dict[str,peer] = {}
 pending_connections:queue.Queue[tuple[str,addr,int]] = queue.Queue()
 waiting_handshake_connections:dict[str,tuple[addr,float]] = {}
 waiting_connected_connections:dict[str,tuple[addr,float]] = {}
