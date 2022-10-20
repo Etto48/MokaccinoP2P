@@ -121,17 +121,17 @@ def connection():
                 msg,addr = udp_socket.recvfrom(MTU)
                 
                 try:
-                    printing.rprint(f"{addr}: {msg.decode('ASCII')}")
+                    #printing.rprint(f"{addr}: {msg.decode('ASCII')}")
                     decoded_msg = msg.decode("ASCII").split(":")
                 except UnicodeDecodeError:
                     command_bytes = []
                     for b in msg:
-                        if b != b":":
+                        if chr(b) != ":":
                             command_bytes.append(chr(b))
                         else:
                             break
                     decoded_msg = ["".join(command_bytes)]
-                    printing.rprint(f"{addr}: {decoded_msg[0]}:RAWDATA")
+                    #printing.rprint(f"{addr}: {decoded_msg[0]}:RAWDATA")
                 if decoded_msg[0] == "CONNECT":
                     if decoded_msg[1] not in open_connections:
                         pending_connections.put((decoded_msg[1],addr,1),block=False)
@@ -169,7 +169,7 @@ def connection():
                         voice.start_voice_call(open_connections[decoded_msg[1]])
                         printing.rprint(f"Voice call started with {decoded_msg[1]}")
                 elif decoded_msg[0] == "AUDIOSTOP":
-                    if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == addr and voice.voice_call_peer.nickname==decoded_msg[1]:
+                    if voice.voice_call_peer.nickname==decoded_msg[1] and voice.voice_call_peer.address == addr:
                         open_connections[decoded_msg[1]].see()
                         voice.stop_voice_call()
                         printing.rprint(f"Voice call terminated by {decoded_msg[1]}")
@@ -178,7 +178,7 @@ def connection():
                         in_data = msg[6:]
                         voice.recv_audio_buffer.put(in_data,block=False)
                     else:
-                        udp_socket.send(f"AUDIOSTOP:{decoded_msg[1]}",addr)
+                        udp_socket.sendto(f"AUDIOSTOP:{config['nickname']}".encode("ASCII"),addr)
             except socket.timeout:
                 pass
 
@@ -247,6 +247,7 @@ def connection():
             
     except KeyboardInterrupt:
         pass
+    voice.stop_voice_call()
     server.close()
     printing.rprint("Disconnected!",end="")
 

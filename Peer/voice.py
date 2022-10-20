@@ -30,12 +30,14 @@ def voice_call(target:tools.peer,stop_call_event:threading.Event):
         return (in_data,pyaudio.paContinue)
 
     p = pyaudio.PyAudio()
-    stream = p.open(format=FORMAT,channels=1,rate=RATE,input=True,output=False,stream_callback=callback_send)
-    stream = p.open(format=FORMAT,channels=1,rate=RATE,input=False,output=True,stream_callback=callback_recv)
-    stream.start_stream()
+    stream_out = p.open(format=FORMAT,channels=1,rate=RATE,input=True,output=False,stream_callback=callback_send)
+    stream_in = p.open(format=FORMAT,channels=1,rate=RATE,input=False,output=True,stream_callback=callback_recv)
+    stream_out.start_stream()
+    stream_in.start_stream()
     
     stop_call_event.wait()
-    stream.stop_stream()
+    stream_out.stop_stream()
+    stream_in.stop_stream()
 
 voice_call_thread:threading.Thread = None
 def start_voice_call(target:tools.peer):
