@@ -31,7 +31,11 @@ except NotFoundErr:
     printing.rcprint("No config file found","red",end="\n")
     exit()
 
-local_address = ("0.0.0.0",config["port"])
+if INTERNET_PROTOCOL == socket.AF_INET:
+    local_address = ("0.0.0.0",config["port"])
+elif INTERNET_PROTOCOL == socket.AF_INET6:
+    local_address = ("::",config["port"])
+
 if len(sys.argv)>1:
     server_address = (sys.argv[1],25566)
 else:

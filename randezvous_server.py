@@ -24,8 +24,13 @@ or
 
 waiting_list:dict[str,str] = {}
 
-server_tcp_addr = ("0.0.0.0",25566)
-server_udp_addr = ("0.0.0.0",25566)
+if INTERNET_PROTOCOL == socket.AF_INET:
+    server_tcp_addr = ("0.0.0.0",25566)
+    server_udp_addr = ("0.0.0.0",25566)
+elif INTERNET_PROTOCOL == socket.AF_INET6:
+    server_tcp_addr = ("::",25566)
+    server_udp_addr = ("::",25566)
+    
 server_udp_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_DGRAM)
 server_socket = socket.socket(family=INTERNET_PROTOCOL,type=socket.SOCK_STREAM)
 server_udp_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
