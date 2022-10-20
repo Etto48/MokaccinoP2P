@@ -19,7 +19,7 @@ ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
 RETRY_CONNECT_TIMER = 5
 
-INTERNET_PROTOCOL = socket.AF_INET6
+INTERNET_PROTOCOL = socket.AF_INET
 
 
 MTU = 1024
@@ -37,7 +37,7 @@ if INTERNET_PROTOCOL == socket.AF_INET:
     addr = tuple[str,int]
 elif INTERNET_PROTOCOL == socket.AF_INET6:
     local_address = ("::",config["port"],0,0)
-    server_address = (config["server"],25566,0,3)
+    server_address = (config["server"],25566,0,0)
     addr = tuple[str,int,int,int]
 
 server:socket.socket = None   

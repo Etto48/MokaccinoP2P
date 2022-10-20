@@ -2,7 +2,7 @@ import socket
 
 TIMEOUT = 0.1
 
-INTERNET_PROTOCOL = socket.AF_INET6
+INTERNET_PROTOCOL = socket.AF_INET
 
 '''
 after connection server waits for Nickname

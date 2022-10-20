@@ -1,6 +1,6 @@
 import socket
 
-INTERNET_PROTOCOL = socket.AF_INET6
+INTERNET_PROTOCOL = socket.AF_INET
 
 if INTERNET_PROTOCOL == socket.AF_INET:
     addr = tuple[str,int]
@@ -16,5 +16,5 @@ def string_to_address(address:str) -> addr:
         return (ip,port)
     elif INTERNET_PROTOCOL == socket.AF_INET6:
         flowinfo = int(address.split(",")[2].strip())
-        scope_id = int(address.split(",")[3].strip())
+        scope_id = 0
         return (ip,port,flowinfo,scope_id)
