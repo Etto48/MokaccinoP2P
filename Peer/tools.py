@@ -27,3 +27,13 @@ class peer:
         self.address = address
     def see(self):
         self.last_seen = time.time()
+
+
+def get_msg_command(msg:bytearray) -> str:
+    command = ""
+    for b in msg:
+        if b != 58: #58 = ':'
+            command += chr(b)
+        else:
+            break
+    return command

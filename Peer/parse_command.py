@@ -1,4 +1,5 @@
 from asyncio import open_connection
+import sys
 from . import connection
 from . import printing
 from . import voice

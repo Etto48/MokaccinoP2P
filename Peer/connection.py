@@ -11,7 +11,7 @@ from . import tools
 from . import parse_command
 from . import voice
 
-TIMEOUT = 0.1
+TIMEOUT = 0.05
 
 ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
@@ -20,7 +20,9 @@ RETRY_CONNECT_TIMER = 5
 INTERNET_PROTOCOL = socket.AF_INET
 
 
-MTU = 1500
+MTU = 2048*8
+DATA_COMMANDS = ['AUDIO']
+
 
 try:
     with open("config.json") as config_file:
@@ -55,8 +57,6 @@ def new_server_socket():
     server.connect(server_address)
     server.send(config["nickname"].encode("ASCII"))
     return server
-
-
 
 def connection():
     global server
@@ -119,19 +119,15 @@ def connection():
             
             try:#receive messages from peers
                 msg,addr = udp_socket.recvfrom(MTU)
-                
-                try:
-                    printing.rprint(f"{addr}: {msg.decode('ASCII')}")
+                command = tools.get_msg_command(msg)
+                if command in DATA_COMMANDS:
+                    #printing.rprint(f"{addr}: {command}:<BINARY DATA>")
+                    decoded_msg = [command]
+                else:
+                    #printing.rprint(f"{addr}: {msg.decode('ASCII')}")
                     decoded_msg = msg.decode("ASCII").split(":")
-                except UnicodeDecodeError:
-                    command_bytes = []
-                    for b in msg:
-                        if chr(b) != ":":
-                            command_bytes.append(chr(b))
-                        else:
-                            break
-                    decoded_msg = ["".join(command_bytes)]
-                    printing.rprint(f"{addr}: {decoded_msg[0]}:RAWDATA")
+
+
                 if decoded_msg[0] == "CONNECT":
                     if decoded_msg[1] not in open_connections:
                         pending_connections.put((decoded_msg[1],addr,1),block=False)

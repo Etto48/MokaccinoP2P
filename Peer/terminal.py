@@ -6,7 +6,7 @@ command_buffer = ""
 def terminal(input_ready:threading.Event):
     global command_buffer
     try:
-        while True:
+        while command_buffer!="exit":
             if not input_ready.is_set():
                 command = input("\r> ")
                 command_buffer = command
