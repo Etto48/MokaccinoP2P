@@ -4,10 +4,10 @@ import queue
 import threading
 from . import tools
 
-QUALITY_DIV = 2
+QUALITY_DIV = 8
 
 WIDTH=2
-CHUNK = 1024*8//QUALITY_DIV
+CHUNK = 1024*4//QUALITY_DIV
 CHANNELS = 1
 RATE = 44100//QUALITY_DIV
 VOLUME_THRESHOLD = 45

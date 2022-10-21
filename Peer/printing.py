@@ -1,5 +1,7 @@
 from typing import Any
+import threading
 
+printing_lock = threading.Lock()
 
 def colorize(text:str,color:str):
     color_str = ""
@@ -18,7 +20,8 @@ def colorize(text:str,color:str):
     return color_str+text+"\033[0m"
 
 def rprint(text:Any,end:str="\n> "):
-    print("\r"+str(text),end=end)
+    with printing_lock:
+        print("\r"+str(text),end=end)
 
 def rcprint(text:Any,color:str=None,end:str="\n> "):
     rprint(colorize(str(text),color),end)
