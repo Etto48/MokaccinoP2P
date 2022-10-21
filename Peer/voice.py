@@ -1,3 +1,4 @@
+from base64 import encode
 from numpy import ndarray
 import pyaudio
 import audioop
@@ -7,13 +8,15 @@ import pyflac
 import numpy as np
 from . import tools
 
-QUALITY_DIV = 2
+QUALITY_DIV = 4
 
 WIDTH=2
 CHUNK = 1024*4//QUALITY_DIV
 CHANNELS = 1
 RATE = 44100//QUALITY_DIV
+COMPRESSION_LEVEL = 9
 VOLUME_THRESHOLD = 45
+ENABLE_COMPRESSION = False
 
 p:pyaudio.PyAudio = None
 stream:pyaudio.Stream = None
@@ -30,12 +33,13 @@ voice_call_peer:tools.peer = None
 
 class AudioEncoder(threading.Thread):
     def __init__(self):
+        super().__init__()
         self.queue:queue.SimpleQueue = queue.SimpleQueue()
         self.encoder = pyflac.StreamEncoder(
             sample_rate=RATE,
             write_callback=self.callback,
-            compression_level=5,
-            blocksize=CHUNK
+            compression_level=COMPRESSION_LEVEL,
+            blocksize=0
         )
 
     def start(self):
@@ -61,12 +65,10 @@ class AudioEncoder(threading.Thread):
     
 class AudioDecoder(threading.Thread):
     def __init__(self):
+        super().__init__()
         self.queue:queue.SimpleQueue = queue.SimpleQueue()
         self.decoder = pyflac.StreamDecoder(
-            sample_rate=RATE,
-            write_callback=self.callback,
-            compression_level=5,
-            blocksize=CHUNK
+            write_callback=self.callback
         )
         
     def start(self):
@@ -97,14 +99,22 @@ def voice_call_out(target:tools.peer,stop_call_event:threading.Event):
         data = stream.read(CHUNK)
         volume = audioop.rms(data,WIDTH)
         if volume > VOLUME_THRESHOLD:
-            encoder_thread.queue.put(data,block=False)
+            if ENABLE_COMPRESSION:
+                encoder_thread.queue.put(data,block=False)
+            else:
+                try:
+                    send_audio_buffer.put(data,block=False)
+                except queue.Full:
+                    pass
 
 
 def voice_call_in(target:tools.peer,stop_call_event:threading.Event):
-    global p
     while not stop_call_event.is_set():
         try:
-            data = decoder_thread.queue.get(block=False)
+            if ENABLE_COMPRESSION:
+                data = decoder_thread.queue.get(block=False)
+            else:
+                data = recv_audio_buffer.get(block=False)
             stream.write(data)
         except queue.Empty:
             pass
@@ -145,6 +155,8 @@ def stop_voice_call():
     global decoder_thread
     voice_call_peer = None
 
-    encoder_thread.stop()
-    decoder_thread.stop()
+    if encoder_thread is not None:
+        encoder_thread.stop()
+    if decoder_thread is not None:
+        decoder_thread.stop()
     stop_call.set()
