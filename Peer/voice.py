@@ -1,10 +1,13 @@
+from numpy import ndarray
 import pyaudio
 import audioop
 import queue
 import threading
+import pyflac
+import numpy as np
 from . import tools
 
-QUALITY_DIV = 8
+QUALITY_DIV = 2
 
 WIDTH=2
 CHUNK = 1024*4//QUALITY_DIV
@@ -25,32 +28,96 @@ stop_call:threading.Event = threading.Event()
 
 voice_call_peer:tools.peer = None 
 
+class AudioEncoder(threading.Thread):
+    def __init__(self):
+        self.queue:queue.SimpleQueue = queue.SimpleQueue()
+        self.encoder = pyflac.StreamEncoder(
+            sample_rate=RATE,
+            write_callback=self.callback,
+            compression_level=5,
+            blocksize=CHUNK
+        )
+
+    def start(self):
+        self.running = True
+        super().start()
+    def stop(self):
+        self.running = False
+
+    def callback(self,buffer,num_bytes,num_samples,current_frame):
+        global send_audio_buffer
+        try:
+            send_audio_buffer.put(buffer,block=False)
+        except queue.Full:
+            pass
+    
+    def run(self):
+        while self.running:
+            while not self.queue.empty():
+                data = np.frombuffer(self.queue.get(), dtype=np.int16)
+                samples = data.reshape((len(data) // CHANNELS, CHANNELS))
+                self.encoder.process(samples)
+        self.encoder.finish()
+    
+class AudioDecoder(threading.Thread):
+    def __init__(self):
+        self.queue:queue.SimpleQueue = queue.SimpleQueue()
+        self.decoder = pyflac.StreamDecoder(
+            sample_rate=RATE,
+            write_callback=self.callback,
+            compression_level=5,
+            blocksize=CHUNK
+        )
+        
+    def start(self):
+        self.running = True
+        super().start()
+    def stop(self):
+        self.running = False
+
+    def callback(self,samples:ndarray,num_bytes,num_samples,current_frame):
+        try:
+            buffer = samples.tobytes()
+            self.queue.put(buffer,block=False)
+        except queue.Full:
+            pass
+    
+    def run(self):
+        global recv_audio_buffer
+        while self.running:
+            while not recv_audio_buffer.empty():
+                data = recv_audio_buffer.get()
+                self.decoder.process(data)
+        self.decoder.finish()
+
+
 def voice_call_out(target:tools.peer,stop_call_event:threading.Event):
     global p
     while not stop_call_event.is_set():
-        try:
-            data = stream.read(CHUNK)
-            volume = audioop.rms(data,WIDTH)
-            if volume > VOLUME_THRESHOLD:
-                send_audio_buffer.put(data,block=False)
-        except queue.Full:
-            pass
+        data = stream.read(CHUNK)
+        volume = audioop.rms(data,WIDTH)
+        if volume > VOLUME_THRESHOLD:
+            encoder_thread.queue.put(data,block=False)
 
 
 def voice_call_in(target:tools.peer,stop_call_event:threading.Event):
     global p
     while not stop_call_event.is_set():
         try:
-            data = recv_audio_buffer.get(block=False)
+            data = decoder_thread.queue.get(block=False)
             stream.write(data)
         except queue.Empty:
             pass
-        
+
+encoder_thread:AudioEncoder = None
+decoder_thread:AudioDecoder = None        
 
 voice_call_thread:threading.Thread = None
 def start_voice_call(target:tools.peer):
     global voice_call_peer
     global voice_call_thread
+    global encoder_thread
+    global decoder_thread
     global stop_call
     global p
     global stream
@@ -62,6 +129,10 @@ def start_voice_call(target:tools.peer):
 
     stop_call.clear()
     voice_call_peer = target
+    encoder_thread = AudioEncoder()
+    decoder_thread = AudioDecoder()
+    encoder_thread.start()
+    decoder_thread.start()
     voice_call_input_thread = threading.Thread(target=voice_call_in,args=(target,stop_call))
     voice_call_output_thread = threading.Thread(target=voice_call_out,args=(target,stop_call))
     voice_call_input_thread.start()
@@ -70,5 +141,10 @@ def start_voice_call(target:tools.peer):
 def stop_voice_call():
     global stop_call
     global voice_call_peer
+    global encoder_thread
+    global decoder_thread
     voice_call_peer = None
+
+    encoder_thread.stop()
+    decoder_thread.stop()
     stop_call.set()
