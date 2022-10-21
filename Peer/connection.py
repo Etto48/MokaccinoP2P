@@ -12,7 +12,7 @@ from . import voice
 
 TIMEOUT = 0.05
 
-NOT_BUSY_TIME = 0.1
+NOT_BUSY_TIME = 0.2
 
 ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
@@ -57,11 +57,15 @@ server_connected = False
 
 def voice_call_send_task():
     while not connection_shutdown.is_set():
-        if not voice.send_audio_buffer.empty() and voice.voice_call_peer is not None:
-            out_data = voice.send_audio_buffer.get(block=False)
-            udp_socket.sendto("AUDIO:".encode("ASCII")+out_data,voice.voice_call_peer.address)
+        if voice.voice_call_peer is not None:
+            if not voice.send_audio_buffer.empty():
+                out_data = voice.send_audio_buffer.get(block=False)
+                udp_socket.sendto("AUDIO:".encode("ASCII")+out_data,voice.voice_call_peer.address)
+            else:
+                time.sleep(0.01)
         else:
             time.sleep(NOT_BUSY_TIME)
+            
 
 def udp_recv_task():
     global open_connections
@@ -208,48 +212,58 @@ def retry_to_connect_task():
     global waiting_handshake_connections
     global waiting_connected_connections
     global pending_connections
+    last_checked = 0
     while not connection_shutdown.is_set():
         #retry connections
-        to_remove:list[str] = []
-        for nickname,(address,last_seen) in waiting_connected_connections.items():
-            if time.time() - last_seen > RETRY_CONNECT_TIMER:
-                to_remove.append(nickname)
-        for nickname in to_remove:
-            pending_connections.put((nickname,waiting_connected_connections[nickname][0],1),block=False)
-            waiting_connected_connections.pop(nickname)
-        to_remove = []
-        for nickname,(address,last_seen) in waiting_handshake_connections.items():
-            if time.time() - last_seen > RETRY_CONNECT_TIMER:
-                to_remove.append(nickname)
-        for nickname in to_remove:
-            pending_connections.put((nickname,waiting_handshake_connections[nickname][0],0),block=False)
-            waiting_handshake_connections.pop(nickname)
-
-        time.sleep(RETRY_CONNECT_TIMER)
+        if time.time() - last_checked > RETRY_CONNECT_TIMER:
+            to_remove:list[str] = []
+            for nickname,(address,last_seen) in waiting_connected_connections.items():
+                if time.time() - last_seen > RETRY_CONNECT_TIMER:
+                    to_remove.append(nickname)
+            for nickname in to_remove:
+                pending_connections.put((nickname,waiting_connected_connections[nickname][0],1),block=False)
+                waiting_connected_connections.pop(nickname)
+            to_remove = []
+            for nickname,(address,last_seen) in waiting_handshake_connections.items():
+                if time.time() - last_seen > RETRY_CONNECT_TIMER:
+                    to_remove.append(nickname)
+            for nickname in to_remove:
+                pending_connections.put((nickname,waiting_handshake_connections[nickname][0],0),block=False)
+                waiting_handshake_connections.pop(nickname)
+            last_checked = time.time()
+        else:
+            time.sleep(NOT_BUSY_TIME)
 
 def check_offline_peer_task():
     global open_connections
+    last_checked = 0
     while not connection_shutdown.is_set():
         #check peer gone offline
-        with open_connections_lock:
-            offline_peers:list[str] = []
-            for nickname, conn in open_connections.items():
-                if time.time() - conn.last_seen > MAX_OFFLINE_TIME:
-                    offline_peers.append(nickname)
-            for nickname in offline_peers:
-                open_connections.pop(nickname)
-                printing.rcprint(f"{nickname} is now offline","red")
-
-        time.sleep(MAX_OFFLINE_TIME)
+        if time.time() - last_checked > MAX_OFFLINE_TIME:
+            with open_connections_lock:
+                offline_peers:list[str] = []
+                for nickname, conn in open_connections.items():
+                    if time.time() - conn.last_seen > MAX_OFFLINE_TIME:
+                        offline_peers.append(nickname)
+                for nickname in offline_peers:
+                    open_connections.pop(nickname)
+                    printing.rcprint(f"{nickname} is now offline","red")
+            last_checked = time.time()
+        else:
+            time.sleep(NOT_BUSY_TIME)
 
 def keep_alive_task():
     global open_connections
+    last_checked = 0
     while not connection_shutdown.is_set():
         #keep alive
-        with open_connections_lock:
-            for nickname, conn in open_connections.items():
-                udp_socket.sendto(f"ALIVE:{config['nickname']}".encode("ASCII"),conn.address)
-        time.sleep(ALIVE_TIMER)
+        if time.time() - last_checked > ALIVE_TIMER:
+            with open_connections_lock:
+                for nickname, conn in open_connections.items():
+                    udp_socket.sendto(f"ALIVE:{config['nickname']}".encode("ASCII"),conn.address)
+            last_checked = time.time()
+        else:
+            time.sleep(NOT_BUSY_TIME)
 
 def new_server_socket():
     global server_connected
@@ -276,7 +290,7 @@ def connection():
             if not terminal.terminal_thread.is_alive():
                 break
             else:
-                command = terminal.get_input_from_terminal_if_ready()
+                command = terminal.get_input_from_terminal_with_timeout(NOT_BUSY_TIME)
                 if command is not None:#handle input
                     parse_command.parse_command(command)
 
@@ -320,7 +334,7 @@ def start():
         udp_socket.bind(local_address)
 
 
-        udp_socket.settimeout(TIMEOUT)
+        udp_socket.settimeout(NOT_BUSY_TIME)
 
         while server_connected == False:
             try:
