@@ -139,10 +139,11 @@ def start_voice_call(target:tools.peer):
 
     stop_call.clear()
     voice_call_peer = target
-    encoder_thread = AudioEncoder()
-    decoder_thread = AudioDecoder()
-    encoder_thread.start()
-    decoder_thread.start()
+    if ENABLE_COMPRESSION:
+        encoder_thread = AudioEncoder()
+        decoder_thread = AudioDecoder()
+        encoder_thread.start()
+        decoder_thread.start()
     voice_call_input_thread = threading.Thread(target=voice_call_in,args=(target,stop_call))
     voice_call_output_thread = threading.Thread(target=voice_call_out,args=(target,stop_call))
     voice_call_input_thread.start()
