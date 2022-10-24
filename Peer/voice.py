@@ -96,7 +96,7 @@ class AudioDecoder(threading.Thread):
 def voice_call_out(target:tools.peer,stop_call_event:threading.Event):
     global p
     while not stop_call_event.is_set():
-        data = stream.read(CHUNK)
+        data = stream.read(CHUNK,exception_on_overflow=False)
         volume = audioop.rms(data,WIDTH)
         if volume > VOLUME_THRESHOLD:
             if ENABLE_COMPRESSION:
