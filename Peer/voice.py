@@ -1,4 +1,3 @@
-from base64 import encode
 from numpy import ndarray
 import pyaudio
 import audioop
