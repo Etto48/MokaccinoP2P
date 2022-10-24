@@ -55,6 +55,8 @@ def get_input_from_terminal_with_timeout(timeout):
                 ret = command_buffer
                 input_ready.clear()
                 return ret
+            else:
+                time.sleep(0.1)
     return None
 
 class InputTask(threading.Thread):

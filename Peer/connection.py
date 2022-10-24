@@ -10,9 +10,9 @@ from . import tools
 from . import parse_command
 from . import voice
 
-TIMEOUT = 0.05
+TIMEOUT = 1
 
-NOT_BUSY_TIME = 0.2
+NOT_BUSY_TIME = 1
 
 ALIVE_TIMER = 3
 MAX_OFFLINE_TIME = 10 
@@ -52,6 +52,8 @@ pending_connections:queue.Queue[tuple[str,addr,int]] = queue.Queue()
 waiting_handshake_connections:dict[str,tuple[addr,float]] = {}
 waiting_connected_connections:dict[str,tuple[addr,float]] = {}
 
+waiting_for_pong:dict[str,float] = {}
+
 server_connected = False
 
 
@@ -72,6 +74,7 @@ def udp_recv_task():
     global waiting_handshake_connections
     global waiting_connected_connections
     global pending_connections
+    global waiting_for_pong
     while not connection_shutdown.is_set():
         try:#receive messages from peers
             msg,src = udp_socket.recvfrom(MTU)
@@ -107,6 +110,15 @@ def udp_recv_task():
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == src:
                         open_connections[decoded_msg[1]].see()
                         printing.rcprint(printing.format_messge(True,decoded_msg[1],decoded_msg[2]),"cyan")
+                elif decoded_msg[0] == "PING":
+                    if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == src:
+                        open_connections[decoded_msg[1]].see()
+                        udp_socket.sendto(f"PONG:{config['nickname']}".encode("ASCII"),src)
+                elif decoded_msg[0] == "PONG":
+                    if decoded_msg[1] in waiting_for_pong and decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == src:
+                        open_connections[decoded_msg[1]].see()
+                        printing.rprint(f"Ping with {decoded_msg[1]}: {(time.time()-waiting_for_pong[decoded_msg[1]])*1000:0.03f}ms")
+                        waiting_for_pong.pop(decoded_msg[1])
                 elif decoded_msg[0] == "AUDIOSTART":
                     if decoded_msg[1] in open_connections and open_connections[decoded_msg[1]].address == src:
                         if config["autoconnect"]:
@@ -247,6 +259,8 @@ def check_offline_peer_task():
                         offline_peers.append(nickname)
                 for nickname in offline_peers:
                     open_connections.pop(nickname)
+                    if nickname in waiting_for_pong:
+                        waiting_for_pong.pop(nickname)
                     printing.rcprint(f"{nickname} is now offline","red")
             last_checked = time.time()
         else:
@@ -281,10 +295,6 @@ def connection():
     global waiting_handshake_connections
     global waiting_connected_connections
     global pending_connections
-    last_keep_alive = 0
-    last_checked_keep_alive = 0
-    last_check_connection = 0
-    need_to_check_alive = False
     try:
         while not connection_shutdown.is_set():
             if not terminal.terminal_thread.is_alive():

@@ -1,6 +1,3 @@
-import socket
-import upnpy
-import cProfile
 from Peer import terminal
 from Peer import connection
 
@@ -17,5 +14,4 @@ def main():
 
 
 if __name__=="__main__":
-    cProfile.run("main()")
-    #main()
+    main()

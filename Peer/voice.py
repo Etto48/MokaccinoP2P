@@ -1,4 +1,5 @@
 from numpy import ndarray
+import time
 import pyaudio
 import audioop
 import queue
@@ -10,12 +11,14 @@ from . import tools
 QUALITY_DIV = 4
 
 WIDTH=2
-CHUNK = 128
+CHUNK = 512
 CHANNELS = 1
-RATE = 44100
+RATE = 44100//QUALITY_DIV
 VOLUME_THRESHOLD = 50
 ENABLE_COMPRESSION = False
 COMPRESSION_LEVEL = 5
+
+WAIT_FOR_QUEUE = 0.05
 
 p:pyaudio.PyAudio = None
 stream:pyaudio.Stream = None
@@ -104,7 +107,7 @@ def voice_call_out(target:tools.peer,stop_call_event:threading.Event):
                 try:
                     send_audio_buffer.put(data,block=False)
                 except queue.Full:
-                    pass
+                    time.sleep(WAIT_FOR_QUEUE)
 
 
 def voice_call_in(target:tools.peer,stop_call_event:threading.Event):
@@ -116,7 +119,7 @@ def voice_call_in(target:tools.peer,stop_call_event:threading.Event):
                 data = recv_audio_buffer.get(block=False)
             stream.write(data)
         except queue.Empty:
-            pass
+            time.sleep(WAIT_FOR_QUEUE)
 
 encoder_thread:AudioEncoder = None
 decoder_thread:AudioDecoder = None        
