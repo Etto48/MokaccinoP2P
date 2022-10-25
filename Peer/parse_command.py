@@ -2,6 +2,7 @@ import time
 from . import connection
 from . import printing
 from . import voice
+from . import video
 
 
 def parse_command(command:str):
@@ -31,6 +32,11 @@ def parse_command(command:str):
             else:
                 connection.udp_socket.sendto(f"AUDIOSTART:{connection.config['nickname']}".encode("ASCII"),connection.open_connections[command_args[1]].address)
                 voice.requested_peer = command_args[1]
+        elif command_args[0] == "video" and len(command_args) == 2:
+            if command_args[1] not in connection.open_connections:
+                printing.rcprint(f"You are not connected with {command_args[1]}","red")
+            else:
+                video.start_video_call(connection.open_connections[command_args[1]])
         elif command_args[0] == "ping" and len(command_args) == 2:
             if command_args[1] not in connection.open_connections:
                 printing.rcprint(f"You are not connected with {command_args[1]}","red")

@@ -9,6 +9,7 @@ from . import terminal
 from . import tools
 from . import parse_command
 from . import voice
+from . import video
 
 TIMEOUT = 1
 
@@ -22,7 +23,7 @@ INTERNET_PROTOCOL = socket.AF_INET
 
 
 MTU = 1500
-DATA_COMMANDS = ['AUDIO']
+DATA_COMMANDS = ['AUDIO','VIDEO']
 
 
 try:
@@ -67,7 +68,17 @@ def voice_call_send_task():
                 time.sleep(0.01)
         else:
             time.sleep(NOT_BUSY_TIME)
-            
+
+def video_call_send_task():
+    while not connection_shutdown.is_set():
+        if video.video_call_peer is not None:
+            if not video.send_video_buffer.empty():
+                out_data = video.send_video_buffer.get(block=False)
+                udp_socket.sendto("VIDEO:".encode("ASCII")+out_data,video.video_call_peer.address)
+            else:
+                time.sleep(0.01)
+        else:
+            time.sleep(NOT_BUSY_TIME)
 
 def udp_recv_task():
     global open_connections
@@ -144,6 +155,13 @@ def udp_recv_task():
                             pass
                     else:
                         udp_socket.sendto(f"AUDIOSTOP:{config['nickname']}".encode("ASCII"),src)
+                elif decoded_msg[0] == "VIDEO":
+                    if video.video_call_peer is not None and video.video_call_peer.address == src:
+                        in_data = msg[6:]
+                        try:
+                            video.recv_video_buffer.put(in_data,block=False)
+                        except queue.Full:
+                            pass
         except socket.timeout:
             pass
 
@@ -314,6 +332,7 @@ def connection():
 
 connection_thread = threading.Thread(target=connection,args=())
 voice_call_send_thread = threading.Thread(target=voice_call_send_task,args=())
+video_call_send_thread = threading.Thread(target=video_call_send_task,args=())
 udp_recv_thread = threading.Thread(target=udp_recv_task,args=())
 server_comms_thread = threading.Thread(target=server_comms_task,args=())
 finalize_new_connections_thread = threading.Thread(target=finalize_new_connections_task,args=())
@@ -323,6 +342,7 @@ keep_alive_thread = threading.Thread(target=keep_alive_task,args=())
 
 connection_thread_list = [
     voice_call_send_thread,
+    video_call_send_thread,
     udp_recv_thread,
     server_comms_thread,
     finalize_new_connections_thread,
