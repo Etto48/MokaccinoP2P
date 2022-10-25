@@ -14,6 +14,4 @@ def main():
 
 
 if __name__=="__main__":
-    from Peer import video
-    video.start_video_call(None)
     main()

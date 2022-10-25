@@ -49,7 +49,7 @@ def start_video_call(target:tools.peer):
     if video_call_peer is not None:
         return
     
-    video_stream:cv2.VideoCapture = cv2.VideoCapture(0)
+    video_stream = cv2.VideoCapture(0)
 
     voice_call_input_thread = threading.Thread(target=video_call_in,args=(target,stop_call))
     voice_call_output_thread = threading.Thread(target=video_call_out,args=(target,stop_call))

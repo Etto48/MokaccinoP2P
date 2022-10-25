@@ -21,6 +21,7 @@ RETRY_CONNECT_TIMER = 5
 
 INTERNET_PROTOCOL = socket.AF_INET
 
+UDP_DBG = True
 
 MTU = 1500
 DATA_COMMANDS = ['AUDIO','VIDEO']
@@ -91,11 +92,14 @@ def udp_recv_task():
             msg,src = udp_socket.recvfrom(MTU)
             command = tools.get_msg_command(msg)
             with open_connections_lock:
+                
                 if command in DATA_COMMANDS:
-                    #printing.rprint(f"{addr}: {command}:<BINARY DATA>")
+                    if UDP_DBG:
+                        printing.rprint(f"{src}: {command}:<BINARY DATA>")
                     decoded_msg = [command]
                 else:
-                    #printing.rprint(f"{addr}: {msg.decode('ASCII')}")
+                    if UDP_DBG:
+                        printing.rprint(f"{src}: {msg.decode('ASCII')}")
                     decoded_msg = msg.decode("ASCII").split(":")
                 if decoded_msg[0] == "CONNECT":
                     if decoded_msg[1] not in open_connections:
@@ -327,6 +331,7 @@ def connection():
         pass
     connection_shutdown.set()
     voice.stop_voice_call()
+    video.stop_video_call()
     server.close()
     printing.rprint("Closing...",end="")
 
