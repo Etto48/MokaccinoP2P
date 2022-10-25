@@ -330,6 +330,8 @@ def connection():
     except KeyboardInterrupt:
         pass
     connection_shutdown.set()
+    for nickname,address in open_connections.items():
+        udp_socket.sendto(f"DISCONNECT:{config['nickname']}".encode("ASCII"),address)
     voice.stop_voice_call()
     video.stop_video_call()
     server.close()
