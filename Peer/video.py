@@ -45,19 +45,24 @@ def video_call_in(target:tools.peer,stop_call_event:threading.Event):
 def start_video_call(target:tools.peer):
     global video_call_peer
     global video_stream
+    global stop_call
 
     if video_call_peer is not None:
         return
     
     video_stream = cv2.VideoCapture(0)
+    stop_call.clear()
+    video_call_peer = target
 
-    voice_call_input_thread = threading.Thread(target=video_call_in,args=(target,stop_call))
-    voice_call_output_thread = threading.Thread(target=video_call_out,args=(target,stop_call))
-    voice_call_input_thread.start()
-    voice_call_output_thread.start()
+    video_call_input_thread = threading.Thread(target=video_call_in,args=(target,stop_call))
+    video_call_output_thread = threading.Thread(target=video_call_out,args=(target,stop_call))
+    video_call_input_thread.start()
+    video_call_output_thread.start()
             
 def stop_video_call():
     global video_call_peer
     global stop_call
+    global video_stream
     video_call_peer = None
     stop_call.set()
+    video_stream = None
